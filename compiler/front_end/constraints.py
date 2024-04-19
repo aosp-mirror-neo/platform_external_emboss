@@ -105,7 +105,7 @@ def _check_that_array_base_types_in_structs_are_multiples_of_bytes(
       return
     base_type_size = fixed_size
   if base_type_size % type_definition.addressable_unit != 0:
-    assert type_definition.addressable_unit == ir_pb2.TypeDefinition.BYTE
+    assert type_definition.addressable_unit == ir_pb2.AddressableUnit.BYTE
     errors.append([error.error(source_file_name,
                                type_ir.base_type.source_location,
                                "Array elements in structs must have sizes "
@@ -352,9 +352,9 @@ def _check_allowed_in_bits(type_ir, type_definition, source_file_name, ir,
       type_ir.atomic_type.reference, ir)
   if (type_definition.addressable_unit %
       referenced_type_definition.addressable_unit != 0):
-    assert type_definition.addressable_unit == ir_pb2.TypeDefinition.BIT
+    assert type_definition.addressable_unit == ir_pb2.AddressableUnit.BIT
     assert (referenced_type_definition.addressable_unit ==
-            ir_pb2.TypeDefinition.BYTE)
+            ir_pb2.AddressableUnit.BYTE)
     errors.append([
         error.error(source_file_name, type_ir.source_location,
                     "Byte-oriented {} cannot be used in a bits field.".format(
@@ -365,7 +365,7 @@ def _check_allowed_in_bits(type_ir, type_definition, source_file_name, ir,
 def _check_size_of_bits(type_ir, type_definition, source_file_name, errors):
   """Checks that `bits` types are fixed size, less than 64 bits."""
   del type_ir  # Unused
-  if type_definition.addressable_unit != ir_pb2.TypeDefinition.BIT:
+  if type_definition.addressable_unit != ir_pb2.AddressableUnit.BIT:
     return
   fixed_size = ir_util.get_integer_attribute(
       type_definition.attribute, attributes.FIXED_SIZE)
@@ -537,6 +537,8 @@ def _check_bounds_on_runtime_integer_expressions(expression, source_file_name,
   # errors are just returned, rather than appended to a shared list.
   errors += _integer_bounds_errors_for_expression(expression, source_file_name)
 
+def _attribute_in_attribute_action(a):
+  return {"in_attribute": a}
 
 def check_constraints(ir):
   """Checks miscellaneous validity constraints in ir.
@@ -597,7 +599,7 @@ def check_constraints(ir):
       parameters={"errors": errors})
   traverse_ir.fast_traverse_ir_top_down(
       ir, [ir_pb2.Expression], _check_bounds_on_runtime_integer_expressions,
-      incidental_actions={ir_pb2.Attribute: lambda a: {"in_attribute": a}},
+      incidental_actions={ir_pb2.Attribute: _attribute_in_attribute_action},
       skip_descendants_of={ir_pb2.EnumValue, ir_pb2.Expression},
       parameters={"errors": errors, "in_attribute": None})
   traverse_ir.fast_traverse_ir_top_down(
