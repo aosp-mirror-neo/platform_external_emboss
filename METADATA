@@ -8,13 +8,13 @@ third_party {
   license_type: NOTICE
   last_upgrade_date {
     year: 2024
-    month: 4
-    day: 19
+    month: 5
+    day: 3
   }
   identifier {
     type: "Git"
     value: "https://github.com/google/emboss"
-    version: "v2024.0419.155605"
+    version: "v2024.0503.200352"
     primary_source: true
   }
 }
