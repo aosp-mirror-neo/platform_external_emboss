@@ -24,6 +24,8 @@ from compiler.front_end import module_ir
 from compiler.front_end import parser
 from compiler.front_end import tokenizer
 from compiler.util import ir_data
+from compiler.util import ir_data_fields
+from compiler.util import ir_data_utils
 from compiler.util import test_util
 
 _TESTDATA_PATH = "testdata.golden"
@@ -31,7 +33,7 @@ _MINIMAL_SOURCE = pkgutil.get_data(
         _TESTDATA_PATH, "span_se_log_file_status.emb").decode(encoding="UTF-8")
 _MINIMAL_SAMPLE = parser.parse_module(
     tokenizer.tokenize(_MINIMAL_SOURCE, "")[0]).parse_tree
-_MINIMAL_SAMPLE_IR = ir_data.Module.from_json(
+_MINIMAL_SAMPLE_IR = ir_data_utils.IrDataSerializer.from_json(ir_data.Module,
     pkgutil.get_data(_TESTDATA_PATH, "span_se_log_file_status.ir.txt").decode(
         encoding="UTF-8")
 )
@@ -3978,7 +3980,7 @@ def _get_test_cases():
     name, emb, ir_text = case.split("---")
     name = name.strip()
     try:
-      ir = ir_data.Module.from_json(ir_text)
+      ir = ir_data_utils.IrDataSerializer.from_json(ir_data.Module, ir_text)
     except Exception:
       print(name)
       raise
@@ -4088,29 +4090,28 @@ def _check_all_source_locations(proto, path="", min_start=None, max_end=None):
   child_end = None
   # Only check the source_location value if this proto message actually has a
   # source_location field.
-  if "source_location" in proto.raw_fields:
+  if proto.HasField("source_location"):
     errors.extend(_check_source_location(proto.source_location,
                                          path + "source_location",
                                          min_start, max_end))
     child_start = proto.source_location.start
     child_end = proto.source_location.end
 
-  for name, spec in proto.field_specs.items():
+  for name, spec in ir_data_fields.field_specs(proto).items():
     if name == "source_location":
       continue
     if not proto.HasField(name):
       continue
     field_path = "{}{}".format(path, name)
-    if isinstance(spec, ir_pb2.Repeated):
-      if issubclass(spec.type, ir_pb2.Message):
+    if spec.is_dataclass:
+      if spec.is_sequence:
         index = 0
         for i in getattr(proto, name):
           item_path = "{}[{}]".format(field_path, index)
           index += 1
           errors.extend(
               _check_all_source_locations(i, item_path, child_start, child_end))
-    else:
-      if issubclass(spec.type, ir_data.Message):
+      else:
         errors.extend(_check_all_source_locations(getattr(proto, name),
                                                   field_path, child_start,
                                                   child_end))
@@ -4152,10 +4153,11 @@ def _make_superset_tests():
     def test_case(self):
       ir = module_ir.build_ir(test.parse_tree)
       is_superset, error_message = test_util.proto_is_superset(ir, test.ir)
+
       self.assertTrue(
           is_superset,
-          error_message + "\n" + ir.to_json(indent=2) + "\n" +
-          test.ir.to_json(indent=2))
+          error_message + "\n" + ir_data_utils.IrDataSerializer(ir).to_json(indent=2) + "\n" +
+          ir_data_utils.IrDataSerializer(test.ir).to_json(indent=2))
 
     return test_case
 
@@ -4192,12 +4194,12 @@ def _make_negative_tests():
 
     return test_case
 
-  for test in _get_test_cases():
+  for test in _get_negative_test_cases():
     test_name = "test " + test.name + " compilation failure"
     assert not hasattr(ModuleIrTest, test_name)
     setattr(ModuleIrTest, test_name, _make_negative_test(test))
 
-
+_make_negative_tests()
 _make_superset_tests()
 _make_source_location_tests()
 
