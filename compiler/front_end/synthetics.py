@@ -18,6 +18,7 @@ from compiler.front_end import attributes
 from compiler.util import error
 from compiler.util import expression_parser
 from compiler.util import ir_data
+from compiler.util import ir_data_utils
 from compiler.util import ir_util
 from compiler.util import traverse_ir
 
@@ -27,12 +28,12 @@ def _mark_as_synthetic(proto):
   if not isinstance(proto, ir_data.Message):
     return
   if hasattr(proto, "source_location"):
-    proto.source_location.is_synthetic = True
-  for name, value in proto.raw_fields.items():
-    if name != "source_location":
-      if isinstance(value, ir_data.TypedScopedList):
-        for i in range(len(value)):
-          _mark_as_synthetic(value[i])
+    ir_data_utils.builder(proto).source_location.is_synthetic = True
+  for spec, value in ir_data_utils.get_set_fields(proto):
+    if spec.name != "source_location" and spec.is_dataclass:
+      if spec.is_sequence:
+        for i in value:
+          _mark_as_synthetic(i)
       else:
         _mark_as_synthetic(value)
 
@@ -110,15 +111,14 @@ def _add_anonymous_aliases(structure, type_definition):
               ir_data.Reference(source_name=[subfield.name.name]),
           ]
       )
-      new_existence_condition = ir_data.Expression()
-      new_existence_condition.CopyFrom(_ANONYMOUS_BITS_ALIAS_EXISTENCE_SKELETON)
-      existence_clauses = new_existence_condition.function.args
+      new_existence_condition = ir_data_utils.copy(_ANONYMOUS_BITS_ALIAS_EXISTENCE_SKELETON)
+      existence_clauses = ir_data_utils.builder(new_existence_condition).function.args
       existence_clauses[0].function.args[0].field_reference.CopyFrom(
           anonymous_field_reference)
       existence_clauses[1].function.args[0].field_reference.CopyFrom(
           alias_field_reference)
       new_read_transform = ir_data.Expression(
-          field_reference=alias_field_reference)
+          field_reference=ir_data_utils.copy(alias_field_reference))
       # This treats *most* of the alias field as synthetic, but not its name(s):
       # leaving the name(s) as "real" means that symbol collisions with the
       # surrounding structure will be properly reported to the user.
@@ -127,9 +127,9 @@ def _add_anonymous_aliases(structure, type_definition):
       new_alias = ir_data.Field(
           read_transform=new_read_transform,
           existence_condition=new_existence_condition,
-          name=subfield.name)
+          name=ir_data_utils.copy(subfield.name))
       if subfield.HasField("abbreviation"):
-        new_alias.abbreviation.CopyFrom(subfield.abbreviation)
+        ir_data_utils.builder(new_alias).abbreviation.CopyFrom(subfield.abbreviation)
       _mark_as_synthetic(new_alias.existence_condition)
       _mark_as_synthetic(new_alias.read_transform)
       new_fields.append(new_alias)
@@ -194,15 +194,14 @@ def _add_size_virtuals(structure, type_definition):
     # to the size of the structure.
     if ir_util.field_is_virtual(field):
       continue
-    size_clause = ir_data.Expression()
-    size_clause.CopyFrom(_SIZE_CLAUSE_SKELETON)
+    size_clause_ir = ir_data_utils.copy(_SIZE_CLAUSE_SKELETON)
+    size_clause = ir_data_utils.builder(size_clause_ir)
     # Copy the appropriate clauses into `existence_condition ? start + size : 0`
     size_clause.function.args[0].CopyFrom(field.existence_condition)
     size_clause.function.args[1].function.args[0].CopyFrom(field.location.start)
     size_clause.function.args[1].function.args[1].CopyFrom(field.location.size)
-    size_clauses.append(size_clause)
-  size_expression = ir_data.Expression()
-  size_expression.CopyFrom(_SIZE_SKELETON)
+    size_clauses.append(size_clause_ir)
+  size_expression = ir_data_utils.copy(_SIZE_SKELETON)
   size_expression.function.args.extend(size_clauses)
   _mark_as_synthetic(size_expression)
   size_field = ir_data.Field(
@@ -221,20 +220,21 @@ def _add_size_virtuals(structure, type_definition):
 _NEXT_KEYWORD_REPLACEMENT_EXPRESSION = expression_parser.parse("x + y")
 
 
-def _maybe_replace_next_keyword_in_expression(expression, last_location,
+def _maybe_replace_next_keyword_in_expression(expression_ir, last_location,
                                               source_file_name, errors):
-  if not expression.HasField("builtin_reference"):
+  if not expression_ir.HasField("builtin_reference"):
     return
-  if expression.builtin_reference.canonical_name.object_path[0] != "$next":
+  if ir_data_utils.reader(expression_ir).builtin_reference.canonical_name.object_path[0] != "$next":
     return
   if not last_location:
     errors.append([
-      error.error(source_file_name, expression.source_location,
+      error.error(source_file_name, expression_ir.source_location,
                   "`$next` may not be used in the first physical field of a " +
                   "structure; perhaps you meant `0`?")
     ])
     return
-  original_location = expression.source_location
+  original_location = expression_ir.source_location
+  expression = ir_data_utils.builder(expression_ir)
   expression.CopyFrom(_NEXT_KEYWORD_REPLACEMENT_EXPRESSION)
   expression.function.args[0].CopyFrom(last_location.start)
   expression.function.args[1].CopyFrom(last_location.size)
