@@ -28,13 +28,18 @@ py_library(
         "ir_data_fields.py",
         "ir_data_utils.py",
     ],
-    deps = [],
+    deps = [
+        ":parser_types",
+    ],
 )
 
 py_test(
     name = "ir_data_fields_test",
     srcs = ["ir_data_fields_test.py"],
-    deps = [":ir_data"],
+    deps = [
+        ":ir_data",
+        ":parser_types",
+    ],
 )
 
 py_test(
@@ -136,9 +141,7 @@ py_test(
 py_library(
     name = "parser_types",
     srcs = ["parser_types.py"],
-    deps = [
-        ":ir_data",
-    ],
+    deps = [],
 )
 
 py_test(
@@ -148,6 +151,14 @@ py_test(
     deps = [
         ":parser_types",
         ":ir_data",
+    ],
+)
+
+py_library(
+    name = "parser_util",
+    srcs = ["parser_util.py"],
+    deps = [
+        ":parser_types",
     ],
 )
 

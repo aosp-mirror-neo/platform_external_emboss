@@ -7,14 +7,14 @@ description: "Emboss is a tool for generating code that reads and writes binary 
 third_party {
   license_type: NOTICE
   last_upgrade_date {
-    year: 2024
-    month: 8
-    day: 9
+    year: 2025
+    month: 10
+    day: 23
   }
   identifier {
     type: "Git"
     value: "https://github.com/google/emboss"
-    version: "v2024.0809.170004"
+    version: "v2025.1003.000719"
     primary_source: true
   }
 }
