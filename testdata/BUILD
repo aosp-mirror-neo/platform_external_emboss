@@ -36,6 +36,11 @@ filegroup(
     ],
 )
 
+
+
+exports_files(glob(["**/*.emb"]))
+
+
 filegroup(
     name = "test_embs",
     srcs = [
@@ -57,6 +62,7 @@ filegroup(
         "imported.emb",
         "imported_genfiles.emb",
         "importer.emb",
+        "importer2.emb",
         "int_sizes.emb",
         "nested_structure.emb",
         "next_keyword.emb",
@@ -108,7 +114,7 @@ emboss_cc_library(
     srcs = [
         "enum.emb",
     ],
-    # This tag is arbitrary, and exists to ensure you can pass atributes common
+    # This tag is arbitrary, and exists to ensure you can pass attributes common
     # to all build rules to the underlying rules.
     tags = ["an_arbitrary_tag"],
 )
