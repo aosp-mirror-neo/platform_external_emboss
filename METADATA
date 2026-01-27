@@ -14,7 +14,8 @@ third_party {
   identifier {
     type: "Git"
     value: "https://github.com/google/emboss"
-    version: "v2025.1003.000719"
+    version: "f595908cba6f366746d6834a2e885868d1a836cd"
+    closest_version: "v2025.1003.000719"
     primary_source: true
   }
 }
